@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+
 type FlowStep = "Posted" | "Bidding" | "Executing" | "Settled";
 
 type TaskFlow = {
@@ -8,12 +12,85 @@ type TaskFlow = {
 };
 
 type TaskFlowHubProps = {
-  flows: TaskFlow[];
+  flows?: TaskFlow[];
 };
 
 const STEPS: FlowStep[] = ["Posted", "Bidding", "Executing", "Settled"];
 
-export default function TaskFlowHub({ flows }: TaskFlowHubProps) {
+export default function TaskFlowHub({ flows = [] }: TaskFlowHubProps) {
+  const [taskFlows, setTaskFlows] = useState<TaskFlow[]>(flows);
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [lastAction, setLastAction] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+
+    async function fetchTasks() {
+      setIsLoading(true);
+      setLoadError(null);
+
+      try {
+        // Next.js API route should return { tasks: TaskFlow[] }.
+        const response = await fetch("/api/tasks", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Failed to load tasks");
+        }
+
+        const payload = (await response.json()) as { tasks?: TaskFlow[] };
+        if (isActive && payload.tasks) {
+          setTaskFlows(payload.tasks);
+        }
+      } catch (error) {
+        if (isActive) {
+          setLoadError("Unable to fetch active tasks.");
+        }
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    fetchTasks();
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
+
+  const flowCount = useMemo(() => taskFlows.length, [taskFlows.length]);
+
+  async function handleHireAgent(flow: TaskFlow) {
+    setActiveTaskId(flow.id);
+    setActionError(null);
+    setLastAction(null);
+
+    try {
+      const response = await fetch("/api/communicate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          taskId: flow.id,
+          title: flow.title,
+          summary: "Requesting agent negotiation.",
+          budget: flow.budget,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to broadcast");
+      }
+
+      setLastAction("Negotiation broadcasted");
+    } catch (error) {
+      setActionError("Unable to trigger negotiation.");
+    } finally {
+      setActiveTaskId(null);
+    }
+  }
   return (
     <section className="rounded-2xl border border-[#232327] bg-[#0F0F11] p-5 text-zinc-100">
       <header className="flex items-center justify-between">
@@ -26,12 +103,27 @@ export default function TaskFlowHub({ flows }: TaskFlowHubProps) {
           </h3>
         </div>
         <span className="rounded-full border border-[#2A2A2E] px-3 py-1 text-xs uppercase tracking-[0.24em] text-zinc-400">
-          {flows.length} flows
+          {flowCount} flows
         </span>
       </header>
 
       <div className="mt-5 space-y-4">
-        {flows.map((flow) => (
+        {isLoading && (
+          <div className="rounded-2xl border border-[#202024] bg-[#141416] p-4 text-sm text-zinc-400">
+            Loading active flows...
+          </div>
+        )}
+        {loadError && (
+          <div className="rounded-2xl border border-rose-500/40 bg-[#141416] p-4 text-sm text-rose-300">
+            {loadError}
+          </div>
+        )}
+        {!isLoading && !loadError && taskFlows.length === 0 && (
+          <div className="rounded-2xl border border-[#202024] bg-[#141416] p-4 text-sm text-zinc-400">
+            No active flows yet.
+          </div>
+        )}
+        {taskFlows.map((flow) => (
           <article
             key={flow.id}
             className="rounded-2xl border border-[#202024] bg-[#141416] p-4"
@@ -84,6 +176,30 @@ export default function TaskFlowHub({ flows }: TaskFlowHubProps) {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => handleHireAgent(flow)}
+                disabled={activeTaskId === flow.id}
+                className={
+                  "rounded-full border px-4 py-2 text-xs uppercase tracking-[0.28em] transition " +
+                  (activeTaskId === flow.id
+                    ? "cursor-not-allowed border-[#2A2A2E] text-zinc-500"
+                    : "border-cyan-500/40 text-cyan-200 hover:border-cyan-400")
+                }
+              >
+                {activeTaskId === flow.id ? "Hiring..." : "Hire Agent"}
+              </button>
+              <div className="text-xs text-zinc-500">
+                {actionError && (
+                  <span className="text-rose-300">{actionError}</span>
+                )}
+                {!actionError && lastAction && (
+                  <span className="text-cyan-300">{lastAction}</span>
+                )}
+              </div>
             </div>
           </article>
         ))}
