@@ -1,3 +1,21 @@
+import AgentNetworkVisualizer from "../components/AgentNetworkVisualizer";
+
+const AGENTS = [
+  { id: "atlas", position: [-2.6, 0.4, -1.2], meritScore: 92 },
+  { id: "aurora", position: [1.4, 1.6, -0.8], meritScore: 76 },
+  { id: "sol", position: [2.8, -0.4, 1.8], meritScore: 64 },
+  { id: "nexus", position: [-1.6, -1.3, 2.4], meritScore: 83 },
+  { id: "drift", position: [0.2, -0.8, -2.6], meritScore: 55 },
+];
+
+const LINKS = [
+  { from: "atlas", to: "aurora" },
+  { from: "aurora", to: "sol" },
+  { from: "sol", to: "nexus" },
+  { from: "nexus", to: "atlas" },
+  { from: "drift", to: "atlas" },
+];
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-[#0A0A0B]">
@@ -104,10 +122,8 @@ export default function Home() {
                 Merit pulses
               </div>
             </div>
-            <div className="mt-6 flex flex-1 items-center justify-center rounded-xl border border-dashed border-[#202024] bg-[#0B0B0D]/80">
-              <p className="text-sm text-zinc-500">
-                3D canvas placeholder
-              </p>
+            <div className="relative mt-6 flex flex-1 overflow-hidden rounded-xl border border-[#202024] bg-black">
+              <AgentNetworkVisualizer agents={AGENTS} links={LINKS} />
             </div>
           </section>
 
