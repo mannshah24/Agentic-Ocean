@@ -44,7 +44,9 @@ export default function MeritPassport({ address }: MeritPassportProps) {
       setTasksError(null);
 
       try {
-        const response = await fetch(`/api/merit/${encodeURIComponent(ensName)}`);
+        const response = await fetch(
+          `/api/merit/${encodeURIComponent(ensName)}`,
+        );
         if (!response.ok) {
           throw new Error("Failed to load merit logs");
         }

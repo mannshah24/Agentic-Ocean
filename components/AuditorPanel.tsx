@@ -12,9 +12,7 @@ export default function AuditorPanel() {
         <p className="text-xs uppercase tracking-[0.28em] text-zinc-500">
           Auditor Panel
         </p>
-        <span className="text-xs text-zinc-500">
-          {auditable.length} queued
-        </span>
+        <span className="text-xs text-zinc-500">{auditable.length} queued</span>
       </div>
 
       {auditable.length === 0 ? (
@@ -28,7 +26,9 @@ export default function AuditorPanel() {
               key={job.id}
               className="rounded-lg border border-[#2A2A2E] bg-[#141416] p-3"
             >
-              <div className="text-sm font-semibold text-white">{job.title}</div>
+              <div className="text-sm font-semibold text-white">
+                {job.title}
+              </div>
               <div className="mt-1 text-xs text-zinc-500">
                 Client: {job.client}
               </div>

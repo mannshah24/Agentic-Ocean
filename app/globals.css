@@ -1,15 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0b;
+  --foreground: #e5e7eb;
+  --accent-cyan: #00f2fe;
+  --accent-green: #39ff88;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -20,11 +22,53 @@
 }
 
 body {
-  background: var(--background);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(
+      circle at 20% 20%,
+      rgba(0, 242, 254, 0.12),
+      transparent 40%
+    ),
+    radial-gradient(
+      circle at 80% 10%,
+      rgba(149, 42, 255, 0.14),
+      transparent 45%
+    ),
+    radial-gradient(
+      circle at 50% 80%,
+      rgba(57, 255, 136, 0.1),
+      transparent 40%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(15, 16, 20, 0.9) 0%,
+      rgba(10, 10, 11, 0.9) 100%
+    );
+  background-attachment: fixed;
   color: var(--foreground);
   font-family:
     var(--font-sans),
     system-ui,
     -apple-system,
     sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+::selection {
+  background: rgba(0, 242, 254, 0.2);
+  color: #ffffff;
+}
+
+.scrollbar-hidden {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hidden::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }

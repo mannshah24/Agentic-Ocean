@@ -3,31 +3,39 @@ import type { NextRequest } from "next/server";
 import { Indexer, MemData } from "@0glabs/0g-ts-sdk";
 import { JsonRpcProvider, Wallet } from "ethers";
 
-type MeritPayload = {
+type DataUploadPayload = {
   agentEns: string;
-  taskName: string;
-  clientRating: number;
-  codeHash: string;
+  encryptedDataPayload: unknown;
+  dataMetadata: Record<string, unknown>;
 };
+
+type TeeValidationResult = {
+  teeQualityScore: number;
+};
+
+// Placeholder for 0G Compute (Sealed TEE inference) validation.
+// In production, this would invoke an enclave that scores encrypted data
+// without revealing plaintext.
+async function validateDataQualityInEnclave(
+  ogStorageHash: string
+): Promise<TeeValidationResult> {
+  const normalized = ogStorageHash.replace(/^0x/, "");
+  const seed = parseInt(normalized.slice(0, 6) || "1", 16);
+  const score = (seed % 100) + 1;
+
+  return { teeQualityScore: score };
+}
 
 export async function POST(request: NextRequest) {
   try {
-    const body = (await request.json()) as Partial<MeritPayload>;
+    const body = (await request.json()) as Partial<DataUploadPayload>;
 
-    if (!body.agentEns || !body.taskName || !body.codeHash) {
+    if (!body.agentEns || !body.encryptedDataPayload || !body.dataMetadata) {
       return NextResponse.json(
-        { error: "Missing agentEns, taskName, or codeHash" },
+        { error: "Missing agentEns, encryptedDataPayload, or dataMetadata" },
         { status: 400 }
       );
     }
-
-    const meritLog = {
-      agentEns: body.agentEns,
-      taskName: body.taskName,
-      clientRating: body.clientRating ?? 0,
-      codeHash: body.codeHash,
-      createdAt: new Date().toISOString(),
-    };
 
     const rpcUrl = process.env.ZEROG_RPC_URL;
     const privateKey = process.env.ZEROG_PRIVATE_KEY;
@@ -40,12 +48,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const payload = {
+      agentEns: body.agentEns,
+      encryptedDataPayload: body.encryptedDataPayload,
+      dataMetadata: body.dataMetadata,
+      uploadedAt: new Date().toISOString(),
+    };
+
     const provider = new JsonRpcProvider(rpcUrl);
     const wallet = new Wallet(privateKey, provider);
     const indexer = new Indexer(indexerUrl);
 
-    // Convert the merit log to a buffer and upload via 0G Indexer.
-    const buffer = Buffer.from(JSON.stringify(meritLog));
+    const buffer = Buffer.from(JSON.stringify(payload));
     const file = new MemData(buffer);
 
     const [result, uploadError] = await indexer.upload(
@@ -60,22 +74,23 @@ export async function POST(request: NextRequest) {
     if (uploadError || !result) {
       console.error("0G upload error:", uploadError);
       return NextResponse.json(
-        { error: "Failed to upload to 0G Storage" },
+        { error: "Failed to upload encrypted data to 0G Storage" },
         { status: 500 }
       );
     }
 
-    // This root hash is the immutable Merit Log reference that can be attached
-    // to the agent ENS text record (key: 0g-merit-hash) later.
+    const teeValidation = await validateDataQualityInEnclave(result.rootHash);
+
     return NextResponse.json({
       ok: true,
       storageHash: result.rootHash,
       txHash: result.txHash,
+      teeQualityScore: teeValidation.teeQualityScore,
     });
   } catch (error) {
     console.error("0G SDK error:", error);
     return NextResponse.json(
-      { error: "Failed to store merit log" },
+      { error: "Failed to upload encrypted data" },
       { status: 500 }
     );
   }

@@ -11,9 +11,10 @@ const USDC_ADDRESS =
   (process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}` | undefined) ??
   "0x0000000000000000000000000000000000000000";
 const PAYOUT_TOKEN_ADDRESS =
-  (process.env.NEXT_PUBLIC_PAYOUT_TOKEN_ADDRESS as
-    | `0x${string}`
-    | undefined) ?? "0x0000000000000000000000000000000000000000";
+  (process.env.NEXT_PUBLIC_PAYOUT_TOKEN_ADDRESS as `0x${string}` | undefined) ??
+  "0x0000000000000000000000000000000000000000";
+const ENABLE_LEGACY_MARKETPLACE =
+  process.env.NEXT_PUBLIC_ENABLE_LEGACY_MARKETPLACE === "true";
 
 const ESCROW_ABI = [
   {
@@ -130,7 +131,11 @@ type MarketplaceContextValue = {
 
 const MarketplaceContext = createContext<MarketplaceContextValue | null>(null);
 
-export function MarketplaceProvider({ children }: { children: React.ReactNode }) {
+export function MarketplaceProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const { isConnected } = useAccount();
   const { writeContract } = useWriteContract();
   const publicClient = usePublicClient();
@@ -140,11 +145,11 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
 
   const openJob = useMemo(
     () => jobs.find((job) => job.status === "open"),
-    [jobs]
+    [jobs],
   );
 
   useEffect(() => {
-    if (!isConnected || activeJobId || !openJob) {
+    if (!ENABLE_LEGACY_MARKETPLACE || !isConnected || activeJobId || !openJob) {
       return;
     }
 
@@ -156,6 +161,10 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
   }, [isConnected, activeJobId, openJob]);
 
   const handleHire = async (jobId: string) => {
+    if (!ENABLE_LEGACY_MARKETPLACE) {
+      setErrorMessage("Legacy negotiation flow is disabled.");
+      return;
+    }
     if (!isConnected) {
       setErrorMessage("Connect a wallet to enable auto-bidding.");
       return;
@@ -165,8 +174,8 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
     setActiveJobId(jobId);
     setJobs((prev) =>
       prev.map((job) =>
-        job.id === jobId ? { ...job, status: "broadcasting" } : job
-      )
+        job.id === jobId ? { ...job, status: "broadcasting" } : job,
+      ),
     );
 
     try {
@@ -202,9 +211,13 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
       setJobs((prev) =>
         prev.map((item) =>
           item.id === jobId
-            ? { ...item, status: "signing", agentEns: negotiation.serviceAgentEns }
-            : item
-        )
+            ? {
+                ...item,
+                status: "signing",
+                agentEns: negotiation.serviceAgentEns,
+              }
+            : item,
+        ),
       );
 
       const numericBounty = Number.parseFloat(job.bounty);
@@ -212,10 +225,7 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
         ? parseUnits(numericBounty.toString(), 6)
         : parseUnits("0", 6);
       const collateralAmount = Number.isFinite(numericBounty)
-        ? parseUnits(
-            ((numericBounty * job.collateralPct) / 100).toString(),
-            6
-          )
+        ? parseUnits(((numericBounty * job.collateralPct) / 100).toString(), 6)
         : parseUnits("0", 6);
 
       let resolvedAgentWallet: `0x${string}` | undefined =
@@ -245,8 +255,8 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
           onSuccess: async (hash) => {
             setJobs((prev) =>
               prev.map((item) =>
-                item.id === jobId ? { ...item, status: "staking" } : item
-              )
+                item.id === jobId ? { ...item, status: "staking" } : item,
+              ),
             );
 
             if (!publicClient) {
@@ -280,8 +290,8 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
                       onchainJobId,
                       agentWallet,
                     }
-                  : item
-              )
+                  : item,
+              ),
             );
 
             writeContract(
@@ -295,37 +305,39 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
                 onSuccess: () => {
                   setJobs((prev) =>
                     prev.map((item) =>
-                      item.id === jobId ? { ...item, status: "auditing" } : item
-                    )
+                      item.id === jobId
+                        ? { ...item, status: "auditing" }
+                        : item,
+                    ),
                   );
                   setActiveJobId(null);
                 },
                 onError: () => {
                   setJobs((prev) =>
                     prev.map((item) =>
-                      item.id === jobId ? { ...item, status: "error" } : item
-                    )
+                      item.id === jobId ? { ...item, status: "error" } : item,
+                    ),
                   );
                   setActiveJobId(null);
                 },
-              }
+              },
             );
           },
           onError: () => {
             setJobs((prev) =>
               prev.map((item) =>
-                item.id === jobId ? { ...item, status: "error" } : item
-              )
+                item.id === jobId ? { ...item, status: "error" } : item,
+              ),
             );
             setActiveJobId(null);
           },
-        }
+        },
       );
     } catch (error) {
       setJobs((prev) =>
         prev.map((item) =>
-          item.id === jobId ? { ...item, status: "error" } : item
-        )
+          item.id === jobId ? { ...item, status: "error" } : item,
+        ),
       );
       setErrorMessage("Unable to broadcast or negotiate.");
       setActiveJobId(null);
@@ -340,8 +352,8 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
 
     setJobs((prev) =>
       prev.map((item) =>
-        item.id === job.id ? { ...item, status: "finalizing" } : item
-      )
+        item.id === job.id ? { ...item, status: "finalizing" } : item,
+      ),
     );
 
     writeContract(
@@ -355,18 +367,18 @@ export function MarketplaceProvider({ children }: { children: React.ReactNode })
         onSuccess: () => {
           setJobs((prev) =>
             prev.map((item) =>
-              item.id === job.id ? { ...item, status: "executing" } : item
-            )
+              item.id === job.id ? { ...item, status: "executing" } : item,
+            ),
           );
         },
         onError: () => {
           setJobs((prev) =>
             prev.map((item) =>
-              item.id === job.id ? { ...item, status: "error" } : item
-            )
+              item.id === job.id ? { ...item, status: "error" } : item,
+            ),
           );
         },
-      }
+      },
     );
   };
 
