@@ -53,7 +53,7 @@ We integrate specialized sponsor systems to deliver a provable, private marketpl
 Core contract: `AgentDataMarket.sol` — Pay-to-Unlock flow with KeeperHub enforcement and Uniswap routing.
 
 - AgentDataMarket.sol (Sepolia)
-  - Address: 0xYOUR_CONTRACT_ADDRESS_HERE
+  - Address: 0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8
   - Transaction: 0xYOUR_DEPLOY_TX_HASH_HERE
   - Key functions:
     - `createListing(...)` — Register encrypted payload metadata, price, and payout token.
