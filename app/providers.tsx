@@ -11,9 +11,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { WagmiProvider } from "wagmi";
 import "@rainbow-me/rainbowkit/styles.css";
 
+const walletConnectProjectId =
+  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? "";
+
 const config = getDefaultConfig({
   appName: "Agentic Ocean",
-  projectId: "YOUR_PROJECT_ID_HERE", // Get one from cloud.walletconnect.com (free)
+  projectId: walletConnectProjectId,
   chains: [sepolia, baseSepolia],
   ssr: true,
 });

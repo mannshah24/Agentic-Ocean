@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
     const provider = new JsonRpcProvider(rpcUrl);
     const wallet = new Wallet(privateKey, provider);
     const indexer = new Indexer(indexerUrl);
+    const uploadWallet = wallet as unknown as any;
 
     const buffer = Buffer.from(JSON.stringify(payload));
     const file = new MemData(buffer);
@@ -65,7 +66,7 @@ export async function POST(request: NextRequest) {
     const [result, uploadError] = await indexer.upload(
       file,
       rpcUrl,
-      wallet,
+      uploadWallet,
       undefined,
       undefined,
       undefined

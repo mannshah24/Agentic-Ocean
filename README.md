@@ -1,96 +1,101 @@
-# Agentic Ocean - Private Agent-to-Agent Data Market
+# Agentic Ocean
 
-Agentic Ocean is a private AI agent data market built for the ETHGlobal Open Agents track. Agents sell encrypted datasets to other agents with a pay-to-decrypt (x402) flow. The system validates data quality with 0G Compute (Sealed TEE inference), stores encrypted payloads on 0G Storage, and delivers decryption keys over Gensyn AXL. KeeperHub and Uniswap handle trusted execution and token swapping.
+Agentic Ocean is a private agent-to-agent data market built for the ETHGlobal Open Agents track. Sellers publish encrypted datasets, buyers purchase access with a pay-to-decrypt flow, and the platform ties together 0G Storage, 0G Compute, Gensyn AXL, KeeperHub, and Uniswap-inspired settlement behavior.
 
-## Core Flow
+## What It Does
 
-1. Seller agent encrypts data and uploads it to 0G Storage.
-2. 0G Compute validates encrypted data quality inside a TEE and outputs a score.
-3. Buyer agent pays through x402 with KeeperHub enforcing execution.
-4. Gensyn AXL delivers the decryption key after payment is verified.
-5. Uniswap swaps buyer funds into seller-preferred tokens.
+- Seller agents upload encrypted datasets to 0G Storage.
+- 0G Compute scores the encrypted data in a TEE-style validation step.
+- Buyers purchase access through a pay-to-decrypt flow.
+- AXL delivery hands over the decryption key after payment is confirmed.
+- Settlement logic supports swapping or direct payout behavior.
 
-## Sponsor Integrations (Open Agents Side Tracks)
+## Key Features
 
-- 0G Storage & Compute: encrypted dataset storage + TEE validation.
-- Gensyn AXL: agent-to-agent encrypted delivery for decryption keys.
-- x402 + KeeperHub: pay-to-decrypt flow with execution guarantees.
-- Uniswap: token swap during payout.
-- ENS: vendor identity and reputation records.
+- Agent command console for autonomous buyer behavior.
+- Live data market cards with TEE score, pricing, and status updates.
+- AXL delivery flow with demo-safe fallback for presentations.
+- Vendor inspection panel with dataset and proof details.
+- 3D network visualization for live protocol activity.
 
 ## Tech Stack
 
-- Next.js App Router
-- React + TypeScript
-- RainbowKit + Wagmi
-- 0G SDK: @0glabs/0g-ts-sdk
-- Solidity contracts (AgentDataMarket)
+- Next.js 16 App Router
+- React 19 + TypeScript
+- RainbowKit + Wagmi + Viem
+- Tailwind CSS 4
+- 0G SDK
+- Ethereum smart contracts in Solidity
 
-## App Pages
+## Project Structure
 
-- /: Live Dashboard + Agent Command Console + Data Listings
-- /network-flows: Global market activity view
-- /my-agents: Vendor dashboard for datasets and earnings
-
-## API Routes
-
-- POST /api/data-upload
-	- Input: { agentEns, encryptedDataPayload, dataMetadata }
-	- Uploads to 0G Storage and returns storage hash + TEE score (mocked TEE).
-
-- POST /api/axl-delivery
-	- Input: { buyerEns, sellerEns, listingId, transactionHash }
-	- Uses Gensyn AXL WebSocket relay to request decryption key delivery.
-
-## Smart Contract
-
-- contracts/AgentDataMarket.sol
-	- Data listings with Pay-to-Unlock flow.
-	- purchaseData locks funds.
-	- KeeperHub triggers executeAndSwap after AXL delivery confirmation.
+- `app/` - routes, layouts, and API endpoints
+- `components/` - UI, marketplace state, and network visualizers
+- `contracts/` - `AgentDataMarket.sol`
+- `hooks/` - web3 helpers
 
 ## Environment Variables
 
-Create a .env.local file with the following values:
+Copy [.env.example](.env.example) to `.env.local` for local development, or paste the same values into Vercel project settings.
 
-```
-ZEROG_RPC_URL=
-ZEROG_PRIVATE_KEY=
-ZEROG_INDEXER_URL=
-GENSYN_WSS_URL=
-NEXT_PUBLIC_ESCROW_ADDRESS=
-NEXT_PUBLIC_USDC_ADDRESS=
-NEXT_PUBLIC_PAYOUT_TOKEN_ADDRESS=
-NEXT_PUBLIC_ENABLE_LEGACY_MARKETPLACE=false
-```
+Required values:
 
-Notes:
-- GENSYN_WSS_URL defaults to wss://relay.gensyn.network/v1/axl if unset.
-- NEXT_PUBLIC_ENABLE_LEGACY_MARKETPLACE is off by default after the pivot.
+- `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID`
+- `NEXT_PUBLIC_RPC_URL`
+- `ZEROG_RPC_URL`
+- `ZEROG_PRIVATE_KEY`
+- `ZEROG_INDEXER_URL`
+- `GENSYN_WSS_URL`
+- `ENS_RPC_URL`
+- `NEXT_PUBLIC_ESCROW_ADDRESS`
+- `NEXT_PUBLIC_USDC_ADDRESS`
+- `NEXT_PUBLIC_PAYOUT_TOKEN_ADDRESS`
+
+Demo / optional values:
+
+- `NEXT_PUBLIC_DEFAULT_AGENT_ADDRESS`
+- `NEXT_PUBLIC_ENABLE_LEGACY_MARKETPLACE`
+- `AXL_DEMO_FALLBACK`
 
 ## Local Development
 
-Install dependencies and start the dev server:
-
-```
+```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000 to view the app.
+Open http://localhost:3000.
 
-## Demo Tips
+## Build And Deploy
 
-- Use the Agent Command Console to deploy the autonomous buyer agent.
-- The Live Agent Log shows decisions and steps during x402 flow.
-- If AXL delivery times out, ensure a seller agent is listening on the relay.
+Before deploying, verify the production build locally:
 
-## Project Structure
+```bash
+npm run build
+```
 
-- app/: Next.js routes
-- components/: UI components and agent console
-- contracts/: Solidity contracts
-- hooks/: Web3 helpers
+For Vercel:
+
+1. Import the GitHub repository into Vercel.
+2. Keep the default Next.js build settings.
+3. Add the environment variables from [.env.example](.env.example).
+4. Deploy the preview or production build.
+
+This repository has already been validated against a production build.
+
+## Demo Notes
+
+- The buyer agent is configured with demo-friendly thresholds.
+- AXL delivery has a fallback mode so the demo does not fail if the relay is unavailable.
+- Purchase progress is surfaced directly in the UI, including signature and confirmation phases.
+
+## Smart Contract
+
+The deployed contract is `AgentDataMarket`.
+
+- `createListing(...)` creates a dataset listing.
+- `purchaseData(...)` locks buyer funds.
+- `executeAndSwap(...)` is the keeper/owner settlement path.
 
 ## License
 

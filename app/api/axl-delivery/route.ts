@@ -17,10 +17,33 @@ type AxlDeliveryResponse = {
 
 const GENSYN_RELAY_WSS =
   process.env.GENSYN_WSS_URL || "wss://relay.gensyn.network/v1/axl";
+const AXL_DEMO_FALLBACK_ENABLED = process.env.AXL_DEMO_FALLBACK !== "false";
+
+function buildMockDelivery(
+  body: Partial<AxlDeliveryPayload>,
+  reason: "NETWORK_ERROR" | "TIMEOUT_NO_KEY",
+) {
+  const listingId = body.listingId ?? "unknown";
+  const sellerEns = body.sellerEns ?? "unknown.seller.eth";
+  const buyerEns = body.buyerEns ?? "unknown.buyer.eth";
+  const txSuffix = (body.transactionHash ?? "0x").slice(-8) || "demo";
+
+  return {
+    ok: true,
+    mocked: true,
+    reason,
+    decryptionKey: `demo-key-${listingId}-${txSuffix}`,
+    listingId,
+    sellerEns,
+    buyerEns,
+  };
+}
 
 export async function POST(request: NextRequest) {
+  let body: Partial<AxlDeliveryPayload> = {};
+
   try {
-    const body = (await request.json()) as Partial<AxlDeliveryPayload>;
+    body = (await request.json()) as Partial<AxlDeliveryPayload>;
 
     if (
       !body.buyerEns ||
@@ -92,17 +115,20 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       ok: true,
+      mocked: false,
       decryptionKey: result.decryptionKey,
       listingId: result.listingId,
       sellerEns: result.sellerEns,
       buyerEns: result.buyerEns,
     });
   } catch (error) {
-    if (error instanceof Error && error.message === "TIMEOUT_NO_KEY") {
-      return NextResponse.json(
-        { error: "Timed out waiting for decryption key" },
-        { status: 408 }
-      );
+    const message = error instanceof Error ? error.message : "UNKNOWN_ERROR";
+
+    if (
+      AXL_DEMO_FALLBACK_ENABLED &&
+      (message === "TIMEOUT_NO_KEY" || message === "NETWORK_ERROR")
+    ) {
+      return NextResponse.json(buildMockDelivery(body, message));
     }
 
     console.error("AXL delivery failed:", error);

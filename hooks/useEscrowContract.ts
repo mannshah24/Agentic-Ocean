@@ -4,7 +4,7 @@ import { useState } from "react";
 import { keccak256, toHex } from "viem";
 import { useWriteContract, useWaitForTransactionReceipt } from "wagmi";
 
-const CONTRACT_ADDRESS = "0x0000000000000000000000000000000000000000";
+const CONTRACT_ADDRESS = "0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8";
 const USDC_ADDRESS = "0x0000000000000000000000000000000000000000";
 const PAYOUT_TOKEN_ADDRESS = "0x0000000000000000000000000000000000000000";
 

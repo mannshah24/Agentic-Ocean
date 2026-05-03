@@ -20,9 +20,12 @@ type ListingState = {
   status: ListingStatus;
   error?: string;
   decryptionKey?: string;
+  txPhase?: "idle" | "signing" | "broadcasting" | "awaiting-key";
 };
 
 const BUYER_ENS_PLACEHOLDER = "buyer.agenticocean.eth";
+const DEMO_MAX_EMPTY_SCANS = 3;
+const DEMO_RELAX_AFTER_SCANS = 2;
 
 const DATA_LISTINGS: DataListing[] = [
   {
@@ -107,15 +110,17 @@ export default function DataMarketHub({
     Record<string, ReturnType<typeof setTimeout>>
   >({});
   const listingStatesRef = useRef<Record<string, ListingState>>(initialState);
+  const emptyScanCountRef = useRef(0);
 
   const [listingStates, setListingStates] = useState(initialState);
   const [isAgentRunning, setIsAgentRunning] = useState(false);
-  const [maxPriceInput, setMaxPriceInput] = useState("250");
-  const [minScoreInput, setMinScoreInput] = useState("85");
+  const [maxPriceInput, setMaxPriceInput] = useState("500");
+  const [minScoreInput, setMinScoreInput] = useState("70");
+  const [soldCount, setSoldCount] = useState(0);
   const [agentLogs, setAgentLogs] = useState<string[]>([
     "Agent initialized...",
     "Scanning 0G listings...",
-    "Awaiting price + TEE thresholds.",
+    "Ready with demo-safe thresholds.",
   ]);
 
   useEffect(() => {
@@ -153,6 +158,17 @@ export default function DataMarketHub({
     setAgentLogs((prev) => [...prev.slice(-24), entry]);
   };
 
+  const stopAgent = (reason: string) => {
+    if (agentLoopRef.current) {
+      clearTimeout(agentLoopRef.current);
+      agentLoopRef.current = null;
+    }
+
+    agentActiveRef.current = false;
+    setIsAgentRunning(false);
+    appendLog(reason);
+  };
+
   const handlePurchase = async (listing: DataListing) => {
     const currentStatus = listingStates[listing.id]?.status;
     if (currentStatus === "paying" || currentStatus === "awaiting") {
@@ -162,14 +178,17 @@ export default function DataMarketHub({
       return true;
     }
 
-    updateListingState(listing.id, { status: "paying" });
+    updateListingState(listing.id, { status: "paying", txPhase: "signing" });
     appendLog(`Initiating x402 payment for ${listing.title}.`);
 
     try {
       appendLog("Awaiting wallet signature...");
       await simulateWalletTransaction();
 
-      updateListingState(listing.id, { status: "awaiting" });
+      updateListingState(listing.id, {
+        status: "awaiting",
+        txPhase: "broadcasting",
+      });
       appendLog("Payment confirmed. Requesting AXL delivery...");
 
       const response = await fetch("/api/axl-delivery", {
@@ -196,9 +215,11 @@ export default function DataMarketHub({
         throw new Error("MISSING_KEY");
       }
 
+      setSoldCount((prev) => prev + 1);
       updateListingState(listing.id, {
         status: "unlocked",
         decryptionKey: data.decryptionKey,
+        txPhase: "idle",
       });
       appendLog(`Decryption key received. ${listing.title} unlocked.`);
       onOpenInspector?.(false);
@@ -209,7 +230,11 @@ export default function DataMarketHub({
           ? "AXL delivery timed out. Retry purchase."
           : "AXL delivery failed. Please retry.";
 
-      updateListingState(listing.id, { status: "error", error: message });
+      updateListingState(listing.id, {
+        status: "error",
+        error: message,
+        txPhase: "idle",
+      });
       appendLog(message);
       scheduleReset(listing.id);
       return false;
@@ -248,6 +273,7 @@ export default function DataMarketHub({
 
     agentActiveRef.current = true;
     setIsAgentRunning(true);
+    emptyScanCountRef.current = 0;
     appendLog("Autonomous buyer agent deployed.");
 
     const runLoop = async () => {
@@ -271,20 +297,39 @@ export default function DataMarketHub({
         );
       });
 
-      if (candidate) {
-        selectListingForInspector(candidate);
+      const fallbackCandidate =
+        candidate ??
+        (emptyScanCountRef.current >= DEMO_RELAX_AFTER_SCANS
+          ? DATA_LISTINGS.find(
+              (listing) => listingStatesRef.current[listing.id]?.status === "locked",
+            )
+          : undefined);
+
+      if (fallbackCandidate) {
+        emptyScanCountRef.current = 0;
+        if (!candidate) {
+          appendLog(
+            `Relaxing demo thresholds. Target acquired: ${fallbackCandidate.title}.`,
+          );
+        }
+
+        selectListingForInspector(fallbackCandidate);
         appendLog(
-          `Target acquired: ${candidate.title}. Initiating x402 payment...`,
+          `Target acquired: ${fallbackCandidate.title}. Initiating x402 payment...`,
         );
-        const success = await handlePurchase(candidate);
+        const success = await handlePurchase(fallbackCandidate);
         if (success) {
-          appendLog("Purchase complete. Agent shutting down.");
-          agentActiveRef.current = false;
-          setIsAgentRunning(false);
+          stopAgent("Purchase complete. Agent shutting down.");
           return;
         }
       } else {
+        emptyScanCountRef.current += 1;
         appendLog("No qualifying listings. Rescanning...");
+
+        if (emptyScanCountRef.current >= DEMO_MAX_EMPTY_SCANS) {
+          appendLog("Demo scan cap reached. Auto-relaxing filters...");
+          return;
+        }
       }
 
       agentLoopRef.current = setTimeout(runLoop, 3000);
@@ -294,7 +339,7 @@ export default function DataMarketHub({
   };
 
   return (
-    <section className="rounded-2xl border border-[#1C1F2A] bg-gradient-to-br from-[#0B0F14] via-[#0A0B10] to-[#0B0F14] p-6 shadow-[0_0_60px_rgba(0,242,254,0.08)]">
+    <section className="rounded-2xl border border-[#1C1F2A] bg-linear-to-br from-[#0B0F14] via-[#0A0B10] to-[#0B0F14] p-6 shadow-[0_0_60px_rgba(0,242,254,0.08)]">
       <header className="mb-6 flex flex-col gap-3">
         <div className="flex items-center gap-3">
           <span className="h-2 w-2 rounded-full bg-[#39FF88] shadow-[0_0_12px_rgba(57,255,136,0.8)]" />
@@ -306,6 +351,14 @@ export default function DataMarketHub({
           Encrypted data listings validated by 0G Compute, unlocked via x402 +
           Gensyn AXL delivery.
         </p>
+        <div className="flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.2em] text-[#9CA3AF]">
+          <span className="rounded-full border border-[#1F2937] bg-[#0B0F14] px-3 py-1 text-[#7DD3FC]">
+            Demo Mode
+          </span>
+          <span className="rounded-full border border-[#1F2937] bg-[#0B0F14] px-3 py-1 text-[#39FF88]">
+            Sold: {soldCount}
+          </span>
+        </div>
         <div className="flex flex-wrap gap-2 text-[11px] uppercase tracking-[0.2em] text-[#6B7280]">
           <span className="rounded-full border border-[#1F2937] bg-[#0E1218] px-3 py-1 text-[#9CA3AF]">
             Pay-to-Decrypt
@@ -434,6 +487,14 @@ export default function DataMarketHub({
               </div>
 
               <div className="mt-4 space-y-3">
+                {state.txPhase && state.txPhase !== "idle" && (
+                  <div className="rounded-lg border border-[#1C2634] bg-[#08111A] px-3 py-2 text-xs text-[#7DD3FC]">
+                    {state.txPhase === "signing" && "Waiting for wallet signature..."}
+                    {state.txPhase === "broadcasting" && "Transaction broadcast. Confirming payment..."}
+                    {state.txPhase === "awaiting-key" && "Awaiting decryption key delivery..."}
+                  </div>
+                )}
+
                 <div
                   className={`rounded-lg border px-3 py-2 text-center text-sm ${
                     statusTone[state.status]
@@ -460,7 +521,11 @@ export default function DataMarketHub({
                       onClick={() => handlePurchase(listing)}
                       className="flex-1 rounded-lg border border-[#1C3B52] bg-[#081826] px-4 py-2 text-sm font-semibold text-[#7DD3FC] transition hover:border-[#39FF88] hover:text-[#39FF88]"
                     >
-                      Purchase Data via x402
+                      {state.status === "paying"
+                        ? "Signing Purchase..."
+                        : state.status === "awaiting"
+                          ? "Confirming Purchase..."
+                          : "Purchase Data via x402"}
                     </button>
                   ) : (
                     <button

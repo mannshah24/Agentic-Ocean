@@ -6,7 +6,7 @@ import { useAccount, usePublicClient, useWriteContract } from "wagmi";
 
 const CONTRACT_ADDRESS =
   (process.env.NEXT_PUBLIC_ESCROW_ADDRESS as `0x${string}` | undefined) ??
-  "0x0000000000000000000000000000000000000000";
+  "0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8";
 const USDC_ADDRESS =
   (process.env.NEXT_PUBLIC_USDC_ADDRESS as `0x${string}` | undefined) ??
   "0x0000000000000000000000000000000000000000";
@@ -232,9 +232,10 @@ export function MarketplaceProvider({
         negotiation.agentWallet;
 
       if (!resolvedAgentWallet && publicClient) {
-        resolvedAgentWallet = (await publicClient.getEnsAddress({
+        const ensAddress = (await publicClient.getEnsAddress({
           name: negotiation.serviceAgentEns,
         })) as `0x${string}` | null | undefined;
+        resolvedAgentWallet = ensAddress ?? undefined;
       }
 
       const agentWallet =

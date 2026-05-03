@@ -15,9 +15,9 @@ type MeritTask = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { ens: string } }
+  { params }: { params: Promise<{ ens: string }> }
 ) {
-  const { ens } = params;
+  const { ens } = await params;
 
   if (!ens) {
     return NextResponse.json(

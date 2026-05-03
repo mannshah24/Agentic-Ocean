@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useEnsAvatar, useEnsName } from "wagmi";
+import { useEnsAvatar } from "wagmi";
 
 export type SelectedListing = {
   title: string;
@@ -29,18 +29,14 @@ export default function VendorInspector({
   const [copied, setCopied] = useState(false);
 
   const ensName = selectedListing?.vendorEns;
-  const { data: resolvedEns, status: ensStatus } = useEnsName({
-    address: undefined,
+  const { data: ensAvatar, status: avatarStatus } = useEnsAvatar({
     name: ensName ?? undefined,
   });
-  const { data: ensAvatar, status: avatarStatus } = useEnsAvatar({
-    name: resolvedEns ?? ensName ?? undefined,
-  });
 
-  const isLoading = ensStatus === "pending" || avatarStatus === "pending";
+  const isLoading = avatarStatus === "pending";
   const displayEns = useMemo(
-    () => resolvedEns ?? ensName ?? "Unknown vendor",
-    [resolvedEns, ensName],
+    () => ensName ?? "Unknown vendor",
+    [ensName],
   );
 
   const handleCopy = async () => {
