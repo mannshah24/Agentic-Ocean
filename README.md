@@ -117,7 +117,3 @@ Key files:
 ## License
 
 MIT
-
----
-
-If you want, I can commit this update to `README.md` and create a tidy commit message, then push — tell me if you want a single commit or a split commit strategy.
